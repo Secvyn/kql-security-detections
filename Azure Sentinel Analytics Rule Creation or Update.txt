@@ -1,0 +1,13 @@
+// Title: Azure Sentinel Analytics Rule Creation or Update
+// Description: Detects creation or update of Azure Sentinel analytics rules (potential tampering or legitimate admin activity).
+// MITRE ATT&CK: None (Admin Activity)
+// Tactics: Policy Change
+// Platform: Azure Sentinel
+
+SentinelAudit
+| where TimeGenerated > ago(180d)
+| where Description == "Create or update analytics rule."
+| extend CallerIpAddress = tostring(ExtendedProperties.CallerIpAddress)
+| extend CallerName = tostring(ExtendedProperties.CallerName)
+| extend enabled = tostring(parse_json(tostring(parse_json(tostring(ExtendedProperties.OriginalResourceState)).properties)).enabled)
+| project TimeGenerated, SentinelResourceType, SentinelResourceName, CallerIpAddress, CallerName, enabled

@@ -1,0 +1,13 @@
+// Title: Sign-in from VPN IP Address
+// Description: Detects successful sign-ins from IP addresses belonging to known VPN services using an external VPN IP range list.
+// MITRE ATT&CK: None (Anomalous Activity)
+// Tactics: None
+// Data Sources: Authentication Attempt
+// Platform: Azure AD
+
+let VPNRanges = externaldata (IpRange:string)
+[@'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv4.txt'] with (format=txt);
+SigninLogs
+| where isnotempty(IPAddress)
+| evaluate ipv4_lookup(VPNRanges, IPAddress, IpRange)
+| project TimeGenerated, UserPrincipalName, IPAddress, UserAgent

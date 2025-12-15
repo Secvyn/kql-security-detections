@@ -1,0 +1,15 @@
+// Title: Logon Activity from Threat Intelligence Identified IP
+// Description: Detects logon or failed logon attempts from IPs flagged by threat intelligence as Botnet, C2, or Proxy.
+// MITRE ATT&CK: T1584.005, T1583.005, T1090, T1090.001, T1090.002
+// Tactics: TA0042 - Resource Development, TA0011 - Command and Control
+// Data Sources: Authentication Success, Authentication Failure, Logon Event
+// Platform: Azure
+
+BehaviorAnalytics
+| where ActivityType =~ 'LogOn' or ActivityType =~ 'FailedLogOn'
+| where DevicesInsights.ThreatIntelIndicatorType =~ 'Botnet'
+    or DevicesInsights.ThreatIntelIndicatorType =~ 'C2'
+    or DevicesInsights.ThreatIntelIndicatorType =~ 'Proxy'
+| where ActivityInsights contains 'True'
+| extend AadUserId = UsersInsights.AccountObjectID
+| extend Account_0_AadUserId = AadUserId

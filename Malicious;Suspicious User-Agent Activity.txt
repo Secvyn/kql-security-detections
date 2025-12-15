@@ -1,0 +1,39 @@
+// Title: Malicious / Suspicious User-Agent Activity
+// Description: Detects authentication and Office activity with User-Agent strings matching known malicious, reconnaissance, or C2 tool fingerprints.
+// MITRE ATT&CK: T1071.001, T1595, T1046
+// Tactics: Active Scanning, Network Service Discovery
+
+let RegexUserAgents = dynamic([
+    "^RemotePC\\ .*$", "^Box\\ Edit/.*$", "^Box/2\\..*$", "^.* DesktopCentral Agent$", "^WireGuard/.*$",
+    "^syncthing v.*$", "^NetSupport Manager/.*$", "^NetSupport Gateway/.*$", "^agentaxios/.*$", "^aiohttp/.*$",
+    "^axios/.*$", "^Python/.*$", "^AZURECLI/.*$", "^stratus-red-team.*$", "^RaccoonO365.*$", "^ShadowSpray\\.Kerb/1\\.0$",
+    "^attacker$", "^.*powershell\\.exe.*$", "^.*QQDownload.*$", "^.*Schtasks /create.*$", "^.*wget http.*$",
+    "^.*Windows NT 123\\.9.*$", "^.*X11; TAILS;.*$", "^.*YAYAYAY.*$", "^.*Your Moms Smart Vibrator.*$", "^aws-cli/.*$",
+    "^.*powershell.*$", "^.*Arachni.*$", "^.*HeadlessChrome.*$", "^.*HeadlessEdg.*$", "^.*NDES client .*",
+    "^.*UCCAPI/16\\.0\\.13328\\.20130 OC/16\\.0\\.13426\\.20234$", "^.*WindowsPowerShell.*$", "^AnyDesk/.*$",
+    "^AnyDesk\\ .*", "^Apache \\(compatible.*$", "^GNU Wget.*$", "^Microsoft BITS/.*$", "^Microsoft-CryptoAPI/.*$",
+    "^Microsoft-WebDAV-MiniRedir/.*$", "^Mozilla \\(libwhisker.*$", "^.* \\(Linux; .*", "^.* \\(X11; .*",
+    "^.* \\(X11; .*Firefox.*$", "^.*\\(Hackintosh.*$", "^.*; Linux x86_64.*$", "^.*yahoomailproxy.*$",
+    "^Mozilla/5.0 \\(\\*-bit\\) dnstwist$", "^PingCastleAutoUpdater.*$", "^.* MASP\\).*", "^.* masscan.*$",
+    "^.*Nikto.*$", "^.*EICAR-STANDARD-ANTIVIRUS-TEST-FILE.*$", "^.*ivre-masscan.*$", "^.*nmap icap-client/.*$",
+    "^.*Nmap Scripting Engine.*$", "^.* Wyzo/.*$", "^Q2hyb21l.*$", "^qBittorrent/.*$", "^QXBwbGVXZWJLaX.*$",
+    "^RGFsdmlr.*$", "^TW96aWxsY.*$", "^Wireshark/.*$", "^python-requests/.*$", "^Docker-Desktop/.*$",
+    "^GitHubCopilotChat/.*$", "^Valve/Steam HTTP Client .*", "^VirtualBox /.*$", "^.* \\(X11; .*Firefox.*$",
+    "^.*\\(Hackintosh.*$", "^.*; Linux x86_64.*$", "^.*yahoomailproxy.*$", "^.* Toolbar .*", "^.*CPython/.*$",
+    "^.*SearchToolbar.*$", "^.*OpenVAS/.*$", "^C2FunctionAgent.*$", "^DirBuster-.*$", "^dirhunt.*$", "^gobuster/.*$",
+    "^MEGA/MEGAcmdUpdaterTask.*$", "^MEGAcmd/.*$", "^.*SELECT.*FROM.*WHERE.*$", "^.*SELECT.*FROM.*Win32_.*$",
+    "^Advanced Monitoring Agent HTTP Retriever 1\\.1$", "^masscan/.*$", "^rclone/.*$", "^uTorrent/.*$", "^Wfuzz/.*$",
+    "^Windows Defender.*$", "^WPScan /.*$", "^XMRig /.*$", "^ZAP.*$"
+]);
+let WatchlistAgents = _GetWatchlist("MaliciousUserAgents") | project UserAgent;
+let QueryLogs = union
+    (SigninLogs | extend UserAgentStr = tostring(UserAgent) | project TableName="SigninLogs", UserAgentStr, TimeGenerated, UserPrincipalName, IPAddress),
+    (OfficeActivity | extend UserAgentStr = tostring(UserAgent) | project TableName="OfficeActivity", UserAgentStr, TimeGenerated),
+    (AADNonInteractiveUserSignInLogs | extend UserAgentStr = tostring(UserAgent) | project TableName="AADNonInteractiveUserSignInLogs", UserAgentStr, TimeGenerated, UserPrincipalName, IPAddress);
+let RegexHits = QueryLogs
+    | where UserAgentStr has_any (RegexUserAgents);
+let ExactHits = QueryLogs
+    | where UserAgentStr in (WatchlistAgents);
+RegexHits
+| union ExactHits
+| project TableName, TimeGenerated, UserAgentStr, UserPrincipalName, IPAddress

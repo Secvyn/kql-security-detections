@@ -1,0 +1,22 @@
+// Title: Suspicious Sign-in After Phishing Link Click
+// Description: This rule detects suspicious sign-in attempts to Microsoft services (login.microsoftonline.com, graph.microsoft.com, outlook.office365.com) that occur within 30 minutes of a user clicking on a URL associated with these services. The sign-in is considered suspicious if it originates from a user agent commonly used by automated tools (e.g., axios, curl, python-requests, httpclient, Go-http-client) and is flagged with a 'atRisk' or 'high' risk level by Azure AD.
+// MITRE ATT&CK: T1566 - Phishing, T1566.002 - Spearphishing Link
+// Tactics: TA0006 - Credential Access, TA0001 - Initial Access
+// Data Sources: Credential Access, Authentication Attempt, Email Phishing Detected
+// Platform: Azure, Office 365, Azure AD
+
+let SuspiciousSignins = SigninLogs
+| where isnotempty(UserAgent)
+| where UserAgent has_any ("axios", "curl", "python-requests", "httpclient", "Go-http-client")
+| where RiskState == "atRisk" or RiskLevelDuringSignIn == "high"
+| project SigninTime = TimeGenerated, UserPrincipalName, IPAddress, UserAgent, RiskState, RiskLevelDuringSignIn, AppDisplayName;
+let SuspiciousClicks = UrlClickEvents
+| where isnotempty(Url)
+| where Url has_any ("login.microsoftonline.com", "graph.microsoft.com", "outlook.office365.com")
+| where IsClickedThrough == true
+| project ClickTime = TimeGenerated, AccountUpn, Url, IPAddress;
+SuspiciousClicks
+| join kind=inner SuspiciousSignins on $left.AccountUpn == $right.UserPrincipalName and $left.IPAddress == $right.IPAddress
+| where SigninTime between (ClickTime .. ClickTime + 30m)
+| project User = AccountUpn, IPAddress, Url, ClickTime, SigninTime, UserAgent, RiskState, RiskLevelDuringSignIn, AppDisplayName
+| order by SigninTime desc

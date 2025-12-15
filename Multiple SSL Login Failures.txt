@@ -1,0 +1,14 @@
+// Title: Multiple SSL Login Failures
+// Description: Detects multiple failed SSL login attempts from a single source IP within 24 hours (potential brute-force or credential stuffing).
+// MITRE ATT&CK: T1110, T1110.001, T1110.003
+// Tactics: TA0006 - Credential Access
+
+let timeRange = 24h;
+let threshold = 10;
+CommonSecurityLog
+| where TimeGenerated > ago(timeRange)
+| where DeviceAction has "ssl-login-fail"
+| summarize FailedAttempts = count(), StartTime = min(TimeGenerated), EndTime = max(TimeGenerated)
+    by SourceIP, DestinationIP, DeviceProduct, DeviceVendor
+| where FailedAttempts >= threshold
+| sort by FailedAttempts desc
